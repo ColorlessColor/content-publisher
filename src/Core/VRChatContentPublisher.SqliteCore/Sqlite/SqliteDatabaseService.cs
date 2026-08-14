@@ -280,32 +280,36 @@ public sealed class SqliteDatabaseService(ILogger<SqliteDatabaseService> logger)
             throw new InvalidOperationException($"Database service not initialized: worker task is null.");
     }
 
-    private async Task WaitUntilWorkerStoppedAsync(Task waitTask)
+    private async Task WaitUntilWorkerStoppedAsync(Task task)
     {
         ThrowOnInvalidState();
-        var completedTask = await Task.WhenAny(waitTask, _sqliteWorkerTask);
-        if (completedTask == _sqliteWorkerTask)
+        await Task.WhenAny(task, _sqliteWorkerTask);
+        if (task.IsCompleted)
+        {
+            await task;
+        }
+        else
         {
             State = SqliteDatabaseState.Stopped;
             await _sqliteWorkerTask;
             throw new InvalidOperationException($"Database service stopped, worker status: {_sqliteWorkerTask.Status}");
         }
-
-        await waitTask;
     }
 
-    private async Task<T> WaitUntilWorkerStoppedAsync<T>(Task<T> waitTask)
+    private async Task<T> WaitUntilWorkerStoppedAsync<T>(Task<T> task)
     {
         ThrowOnInvalidState();
-        var completedTask = await Task.WhenAny(waitTask, _sqliteWorkerTask);
-        if (completedTask == _sqliteWorkerTask)
+        await Task.WhenAny(task, _sqliteWorkerTask);
+        if (task.IsCompleted)
+        {
+            return await task;
+        }
+        else
         {
             State = SqliteDatabaseState.Stopped;
             await _sqliteWorkerTask;
             throw new InvalidOperationException($"Database service stopped, worker status: {_sqliteWorkerTask.Status}");
         }
-
-        return await waitTask;
     }
 
     public void Dispose()
